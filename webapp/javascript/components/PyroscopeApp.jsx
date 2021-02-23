@@ -28,6 +28,10 @@ const flotOptions = {
   },
   grid: {
     borderWidth: 1,
+    markings: [
+      { xaxis: { from: 1613767256000-84600000-84600000, to: 1613767256000-84600000 }, yaxis: { from: 0, to: 1000 }, color: "#00bb00" },
+      { xaxis: { from: 1613767256000-84600000, to: 1613767256000 }, yaxis: { from: 0, to: 1000 }, color: "#bb0000" }
+    ],
     margin: {
       left: 16,
       right: 16,

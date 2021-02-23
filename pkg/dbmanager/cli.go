@@ -23,7 +23,15 @@ func Cli(cfg *config.Config, args []string) error {
 
 	switch args[0] {
 	case "copy":
-		copyData(cfg)
+		err := copyData(cfg)
+		if err != nil {
+			return fmt.Errorf("delete error %q", err)
+		}
+	case "delete":
+		err := deleteData(cfg)
+		if err != nil {
+			return fmt.Errorf("delete error %q", err)
+		}
 	default:
 		return fmt.Errorf("unknown command %q", args[0])
 	}
@@ -113,6 +121,28 @@ func copyData(cfg *config.Config) error {
 	}
 
 	bar.Finish()
+
+	s.Close()
+
+	return nil
+}
+
+func deleteData(cfg *config.Config) error {
+	cfg.Server.StoragePath = cfg.DbManager.StoragePath
+	cfg.Server.LogLevel = cfg.DbManager.LogLevel
+	appName := cfg.DbManager.ApplicationName
+
+	fmt.Printf("deleting data 111 %s %s",
+		appName,
+		cfg.DbManager.StoragePath,
+	)
+
+	s, err := storage.New(cfg)
+	if err != nil {
+		return err
+	}
+
+	s.Delete(appName)
 
 	s.Close()
 

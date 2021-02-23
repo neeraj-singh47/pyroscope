@@ -1,3 +1,24 @@
+# #  _                     __       _            __
+# # | |                   / /      | |          / _|
+# # | |__   ___ ___      / /    ___| |__  _ __ | |_
+# # | '_ \ / __/ __|    / /    / _ \ '_ \| '_ \|  _|
+# # | |_) | (_| (__    / /    |  __/ |_) | |_) | |
+# # |_.__/ \___\___|  /_/      \___|_.__/| .__/|_|
+# #                                      | |
+# #                                      |_|
+
+# # copied from here https://github.com/iovisor/bcc/blob/master/INSTALL.md#alpine---source
+# FROM alpine:3.12 as bcc-builder
+
+# RUN apk add tar git build-base iperf linux-headers llvm10-dev llvm10-static \
+#   clang-dev clang-static cmake python3 flex-dev bison luajit-dev elfutils-dev \
+#   zlib-dev
+
+# WORKDIR /opt/bcc
+
+# RUN git clone https://github.com/iovisor/bcc.git
+# RUN mkdir bcc/build && cd bcc/build && cmake -DENABLE_EXAMPLES=NO -DPYTHON_CMD=python3 .. && make && make install
+
 #                 _
 #                | |
 #  _ __ _   _ ___| |_
@@ -40,9 +61,9 @@ RUN apk add --no-cache make
 
 WORKDIR /opt/pyroscope
 
-COPY package.json yarn.lock babel.config.js .eslintrc .eslintignore Makefile ./
 COPY scripts ./scripts
 COPY webapp ./webapp
+COPY package.json yarn.lock babel.config.js .eslintrc .eslintignore Makefile ./
 
 ARG EXTRA_METADATA=""
 RUN EXTRA_METADATA=$EXTRA_METADATA make assets-release
@@ -61,6 +82,29 @@ FROM golang:1.15.1-alpine3.12 as go-builder
 
 RUN apk add --no-cache make git zstd gcc g++ libc-dev musl-dev
 
+#  _                     __       _            __
+# # | |                   / /      | |          / _|
+# # | |__   ___ ___      / /    ___| |__  _ __ | |_
+# # | '_ \ / __/ __|    / /    / _ \ '_ \| '_ \|  _|
+# # | |_) | (_| (__    / /    |  __/ |_) | |_) | |
+# # |_.__/ \___\___|  /_/      \___|_.__/| .__/|_|
+# #                                      | |
+# #                                      |_|
+
+# # copied from here https://github.com/iovisor/bcc/blob/master/INSTALL.md#alpine---source
+# FROM alpine:3.12 as bcc-builder
+
+RUN apk add tar git build-base iperf linux-headers llvm10-dev llvm10-static \
+  clang-dev clang-static cmake python3 flex-dev bison luajit-dev elfutils-dev \
+  zlib-dev
+
+RUN apk add libelf-static zlib-static ncurses-static
+
+WORKDIR /opt/bcc
+
+RUN git clone https://github.com/iovisor/bcc.git
+RUN mkdir bcc/build && cd bcc/build && cmake -DENABLE_EXAMPLES=NO -DPYTHON_CMD=python3 .. && make && make install
+
 WORKDIR /opt/pyroscope
 
 RUN mkdir -p /opt/pyroscope/third_party/rustdeps/target/release
@@ -76,7 +120,9 @@ COPY scripts ./scripts
 COPY go.mod go.sum pyroscope.go ./
 COPY Makefile ./
 
-RUN EMBEDDED_ASSETS_DEPS="" EXTRA_LDFLAGS="-linkmode external -extldflags \"-static\"" make build-release
+# go build -ldflags "-linkmode external -extldflags \"-static -lbcc -lbcc_bpf -lbcc-loader-static -lbcc -lbcc_bpf -lbcc -loader-static -lelf -L/usr/lib/llvm10/lib $(cat clang.txt) $(cat llvm.txt) $(cat llvm.txt) $(cat llvm.txt) -lz -lrt -ldl -lncursesw -lstdc++ -lstdc++fs\"" ./examples/bcc/perf
+# go build -ldflags "-linkmode external -extldflags \"-static -lbcc -lbcc_bpf -lbcc-loader-static -lelf -lz -L/usr/lib/llvm10/lib $(cat clang.txt) $(cat llvm.txt) -lrt -ldl -lncursesw -lstdc++ -lstdc++fs\"" ./examples/bcc/perf
+RUN EMBEDDED_ASSETS_DEPS="" EXTRA_LDFLAGS="-linkmode external -extldflags \"-static -lelf -lz -lLLVM\"" make build-release
 
 
 #   __ _             _   _

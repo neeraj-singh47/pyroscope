@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 	"time"
 
@@ -288,10 +289,26 @@ func (s *Storage) Close() error {
 }
 
 func (s *Storage) GetKeys(cb func(_k string) bool) {
+	s.closingMutex.Lock()
+	defer s.closingMutex.Unlock()
+
+	if s.closing {
+		// TODO: return errors in this case
+		return
+	}
+
 	s.labels.GetKeys(cb)
 }
 
 func (s *Storage) GetValues(key string, cb func(v string) bool) {
+	s.closingMutex.Lock()
+	defer s.closingMutex.Unlock()
+
+	if s.closing {
+		// TODO: return errors in this case
+		return
+	}
+
 	s.labels.GetValues(key, func(v string) bool {
 		if key != "__name__" || !strarr.Contains(s.cfg.Server.HideApplications, v) {
 			return cb(v)
@@ -312,6 +329,44 @@ func (s *Storage) DiskUsage() map[string]bytesize.ByteSize {
 		res[k] = dirSize(filepath.Join(s.cfg.Server.StoragePath, k))
 	}
 	return res
+}
+
+func (s *Storage) Delete(searchString string) {
+	badgers := []*badger.DB{
+		s.db,
+		s.dbTrees,
+		s.dbDicts,
+		s.dbDimensions,
+		s.dbSegments,
+	}
+
+	for _, db := range badgers {
+		toDelete := [][]byte{}
+		db.View(func(txn *badger.Txn) error {
+			opts := badger.DefaultIteratorOptions
+			opts.PrefetchValues = false
+			it := txn.NewIterator(opts)
+			defer it.Close()
+			for it.Rewind(); it.Valid(); it.Next() {
+				item := it.Item()
+				k := item.Key()
+
+				if strings.Contains(string(k), searchString) {
+					k2 := make([]byte, len(k))
+					copy(k2, k)
+					toDelete = append(toDelete, k2)
+				}
+			}
+			return nil
+		})
+		db.Update(func(txn *badger.Txn) error {
+			for _, k := range toDelete {
+				err := txn.Delete(k)
+				logrus.Debugf("deleting %s %q", k, err)
+			}
+			return nil
+		})
+	}
 }
 
 func dirSize(path string) (result bytesize.ByteSize) {
